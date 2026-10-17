@@ -1,0 +1,43 @@
+name: 自己打包TV版APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-tv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.x"
+          cache: true
+
+      # 自动生成一个自己的签名文件（自用即可）
+      - name: Create keystore
+        run: |
+          keytool -genkeypair -v -keystore $RUNNER_TEMP/my.jks -alias mykey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass simplelive -keypass simplelive \
+            -dname "CN=me, OU=me, O=me, L=me, S=me, C=CN"
+          echo "storeFile=$RUNNER_TEMP/my.jks" > simple_live_tv_app/android/key.properties
+          echo "storePassword=simplelive" >> simple_live_tv_app/android/key.properties
+          echo "keyPassword=simplelive" >> simple_live_tv_app/android/key.properties
+          echo "keyAlias=mykey" >> simple_live_tv_app/android/key.properties
+
+      - name: Build APK
+        run: |
+          cd simple_live_tv_app
+          flutter pub get
+          flutter build apk --release --split-per-abi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android_tv_apk
+          path: simple_live_tv_app/build/app/outputs/flutter-apk/*-release.apk
